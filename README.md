@@ -53,6 +53,8 @@
 - **百度 AI 开放平台** - 图像识别与标签生成
 - **ECNU 大模型** - 图片描述生成
 
+> **注意**：使用百度 AI 和 ECNU 大模型是个人选择，你可以根据需要替换为其他 AI 服务提供商（如 OpenAI、阿里云、腾讯云等）。更换服务商时需要相应修改 `aiService.js` 文件中的 API 调用逻辑和 `.env` 配置文件。
+
 ---
 
 ## 🚀 快速开始
@@ -67,7 +69,7 @@
 1. **克隆项目**
 ```bash
 git clone <your-repository-url>
-cd 期末大作业
+cd PicScribe
 ```
 
 2. **安装依赖**
@@ -127,7 +129,7 @@ http://localhost:3000
 ## 📁 项目结构
 
 ```
-期末大作业/
+PicScribe/
 ├── server/                    # 服务器端代码
 │   ├── server.js             # Express 服务器主文件
 │   ├── aiService.js          # AI 服务模块（百度 AI）
@@ -233,7 +235,25 @@ PORT=8080
 ```
 
 ### 自定义 AI 服务
-如需使用其他 AI 服务，可以修改 `server/aiService.js` 文件。
+
+本项目默认使用百度 AI 和 ECNU 大模型，但你可以根据需要替换为其他 AI 服务：
+
+**更换图像识别服务**（替换百度 AI）：
+1. 修改 `server/aiService.js` 中的 `analyzeImage()` 方法
+2. 更新 `.env` 文件中的 API 密钥配置
+3. 调整 API 请求格式和响应处理逻辑
+
+**更换描述生成服务**（替换 ECNU 大模型）：
+1. 修改 `server/server.js` 中的 `/generate-description` 路由
+2. 更新相应的 API 调用和配置
+3. 确保返回格式与前端预期一致
+
+支持的替代服务包括但不限于：
+- OpenAI GPT Vision API
+- 阿里云视觉智能
+- 腾讯云AI
+- Google Cloud Vision
+- Azure Cognitive Services
 
 ---
 
