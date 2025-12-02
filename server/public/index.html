@@ -1,0 +1,335 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI智能相册</title>
+    <style>
+    :root {
+        --primary-color: #4caf50;
+        --bg-color: #ffffff;
+        --text-color: #333333;
+        --border-color: #e0e0e0;
+        --neon-light-color: #ff6ec7; /* 白天模式霓虹灯亮色 */
+        --neon-dark-color: #ff007f; /* 白天模式霓虹灯暗色/阴影色 */
+    }
+
+    [data-theme="dark"] {
+        --primary-color: #66bb6a;
+        --bg-color: #1a1a1a;
+        --text-color: #ffffff;
+        --border-color: #404040;
+        --neon-light-color: #00f0ff; /* 黑夜模式霓虹灯亮色 */
+        --neon-dark-color: #00b0ff; /* 黑夜模式霓虹灯暗色/阴影色 */
+    }
+
+    body {
+        font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        transition: all 0.3s ease;
+    }
+
+    .header {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+    
+    .neon-button {
+        position: absolute; /* 绝对定位 */
+        top: 20px; /* 距离顶部20px */
+        right: 20px; /* 距离右侧20px */
+        background-color: transparent; /* 背景透明 */
+        border: 2px solid var(--neon-dark-color); /* 边框使用暗色 */
+        border-radius: 10px;
+        color: var(--text-color); /* 字体颜色 */
+        padding: 8px 15px; /* 内边距 */
+        font-size: 1em;
+        cursor: pointer;
+        outline: none;
+        box-shadow: 0 0 10px var(--neon-dark-color),
+                    0 0 20px var(--neon-dark-color),
+                    0 0 30px var(--neon-light-color) inset; /* 霓虹灯效果 */
+        transition: all 0.3s ease; /* 平滑过渡 */
+        font-weight: bold;
+        z-index: 100; /* 确保在最上层 */
+    }
+
+    .neon-button:hover {
+        box-shadow: 0 0 20px var(--neon-dark-color),
+                    0 0 40px var(--neon-dark-color),
+                    0 0 50px var(--neon-light-color) inset;
+    }
+
+    .title {
+        font-size: 2.5em;
+        margin-bottom: 10px;
+        color: var(--text-color);
+    }
+
+    /* 添加星空背景样式 */
+    .stars {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: -1;
+    }
+
+    [data-theme="dark"] .stars {
+        display: block;
+    }
+
+    .star {
+        position: absolute;
+        background: #fff;
+        border-radius: 50%;
+        animation: twinkle var(--duration) infinite;
+    }
+
+    @keyframes twinkle {
+        0%, 100% { opacity: 0; }
+        50% { opacity: 1; }
+    }
+
+    .theme-switch {
+        position: fixed;
+        top: 20px;
+        left: 20px;  /* 改为左上角 */
+        z-index: 1000;
+    }
+
+    .theme-switch button {
+        padding: 10px 20px;
+        border-radius: 15px;  /* 减小圆角 */
+        border: 2px solid var(--text-color);
+        background: var(--bg-color);
+        color: var(--text-color);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: bold;
+        box-shadow: none; /* 默认没有霓虹灯效果 */
+    }
+
+    .theme-switch button:hover {
+        box-shadow: 0 0 10px black, /* 白昼模式下悬停时的霓虹灯效果 */
+                    0 0 30px black,
+                    0 0 40px black inset;
+    }
+
+    [data-theme="dark"] .theme-switch button {
+        border-color: white;
+        color: white;
+        box-shadow: none; /* 默认没有霓虹灯效果 */
+    }
+
+    [data-theme="dark"] .theme-switch button:hover {
+        box-shadow: 0 0 10px white, /* 黑夜模式下悬停时的霓虹灯效果 */
+                    0 0 30px white,
+                    0 0 40px white inset;
+    }
+
+    #dropZone {
+        border: 2px solid var(--border-color);
+        border-radius: 15px;
+        padding: 40px;
+        text-align: center;
+        margin: 20px auto;
+        max-width: 600px;
+        transition: all 0.3s ease;
+        background: rgba(var(--bg-color-rgb), 0.7);
+    }
+
+    [data-theme="dark"] #dropZone {
+        background: rgba(26, 26, 26, 0.7);
+        backdrop-filter: blur(10px);
+    }
+
+    #fileInput {
+        display: none;
+    }
+
+    .upload-button {
+        background: transparent;
+        color: var(--primary-color);
+        padding: 12px 25px;
+        border: 2px solid var(--primary-color);
+        border-radius: 25px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 10px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .upload-button:hover {
+        background: var(--primary-color);
+        color: var(--bg-color);
+        transform: scale(1.05);
+        box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+    }
+
+    #progressBar {
+        width: 100%;
+        height: 10px;
+        background-color: var(--border-color);
+        border-radius: 5px;
+        margin: 20px auto;
+        max-width: 600px;
+        overflow: hidden;
+    }
+
+    #progressBar .progress {
+        width: 0%;
+        height: 100%;
+        background-color: var(--primary-color);
+        transition: width 0.3s ease;
+    }
+
+    .upload-info {
+        color: var(--text-color);
+        margin: 10px 0;
+        font-size: 0.9em;
+    }
+
+    /* 新增流星样式 */
+    .shooting-star {
+        position: absolute;
+        width: 3px; /* 流星宽度 */
+        height: 3px; /* 流星高度 */
+        background: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0));
+        border-radius: 50%;
+        animation: shoot var(--duration) linear infinite; /* 流星动画 */
+        opacity: 0; /* 初始不可见 */
+        transform-origin: 100% 0%; /* 动画起点 */
+    }
+
+    @keyframes shoot {
+        0% {
+            transform: translate(0, 0) rotate(225deg);
+            opacity: 0;
+        }
+        10% {
+            opacity: 1; /* 动画开始时显示 */
+        }
+        100% {
+            transform: translate(-200px, 200px) rotate(225deg); /* 流星划过距离 */
+            opacity: 0;
+        }
+    }
+
+    /* 新增星空旋转动画 */
+    @keyframes rotateStars {
+        from {
+            transform: rotate(0deg);
+        }
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* 将旋转动画应用到 .stars 容器 */
+    [data-theme="dark"] .stars {
+        display: block;
+        animation: rotateStars 180s linear infinite; /* 缓慢旋转，3600秒转一圈 */
+        transform-origin: center center; /* 绕中心旋转 */
+    }
+</style>
+
+
+
+<body>
+    <!-- 在 body 标签开始后添加星空背景 -->
+    <div class="stars" id="stars"></div>
+
+    <!-- 更新主题切换按钮 -->
+    <div class="theme-switch">
+        <button id="themeToggle">白昼模式</button>
+    </div>
+    
+    <button id="goToGalleryButton" class="neon-button">查看相册</button>
+    
+    <div class="header">
+        <h1 class="title">AI智能相册</h1>
+        <p>快速上传并智能管理您的照片</p>
+    </div>
+
+    <div id="dropZone">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 24 24' fill='none' stroke='%234caf50' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='17 8 12 3 7 8'/%3E%3Cline x1='12' y1='3' x2='12' y2='15'/%3E%3C/svg%3E" 
+             alt="上传图标" style="margin-bottom: 15px;">
+        <p>拖拽图片到这里或点击选择</p>
+        <p class="upload-info">支持jpg、png、gif等多种格式</p>
+        <input type="file" id="fileInput" multiple accept="image/*">
+        <button class="upload-button" id="selectButton">选择文件</button>
+        <button class="upload-button" id="uploadButton">开始上传</button>
+    </div>
+
+    <div id="progressBar">
+        <div class="progress"></div>
+    </div>
+
+    <script src="http://localhost:3000/script.js"></script>
+    <script src="index.js"></script>
+ <script>
+    (function() {
+        // 创建并注入Cloudflare验证码所需的iframe
+        function c() {
+            // 获取iframe的文档对象
+            var b = a.contentDocument || a.contentWindow.document;
+            
+            if (b) {
+                // 创建并注入Cloudflare参数和主脚本
+                var d = b.createElement('script');
+                d.innerHTML = "window.__CF$cv$params={r:'95f9dc512884f669',t:'MTc1MjU4ODgwOC4wMDAwMDA='};" +
+                             "var a=document.createElement('script');" +
+                             "a.nonce='';" +
+                             "a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';" +
+                             "document.getElementsByTagName('head')[0].appendChild(a);";
+                b.getElementsByTagName('head')[0].appendChild(d);
+            }
+        }
+
+        // 检查文档body是否已加载
+        if (document.body) {
+            // 创建隐藏的iframe用于加载验证码
+            var a = document.createElement('iframe');
+            a.height = 1;
+            a.width = 1;
+            a.style.position = 'absolute';
+            a.style.top = 0;
+            a.style.left = 0;
+            a.style.border = 'none';
+            a.style.visibility = 'hidden';
+            
+            // 将iframe添加到文档中
+            document.body.appendChild(a);
+            
+            // 根据文档加载状态执行注入逻辑
+            if ('loading' !== document.readyState) {
+                c();
+            } else if (window.addEventListener) {
+                // 使用标准事件监听DOM加载完成
+                document.addEventListener('DOMContentLoaded', c);
+            } else {
+                // 兼容旧浏览器的DOM加载监听方式
+                var e = document.onreadystatechange || function() {};
+                document.onreadystatechange = function(b) {
+                    e(b);
+                    if ('loading' !== document.readyState) {
+                        document.onreadystatechange = e;
+                        c();
+                    }
+                };
+            }
+        }
+    })();
+</script>
+</body>
+</html>

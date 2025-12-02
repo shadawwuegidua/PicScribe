@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI智能相册 - 照片库</title>
+    <link rel="stylesheet" href="gallery.css">
+</head>
+<body>
+    <div class="stars" id="stars"></div>
+
+    <div class="theme-switch">
+        <button id="themeToggle">白昼模式</button>
+    </div>
+
+    <button class="refresh-button" id="refreshButton" title="刷新相册">
+        <span class="refresh-icon"></span>
+    </button>
+
+    <div class="header">
+        <h1 class="title">AI智能相册</h1>
+        <p>智能分类，轻松管理</p>
+        <div class="header-buttons">
+            <button class="action-button" onclick="window.location.href='index.html'">上传照片</button>
+        </div>
+    </div>
+
+    <div class="tags-container">
+        <button class="clear-tags-button" id="clearAllTagsButton">清除所有标签</button>
+        <div class="tags-section">
+            <div class="tags-title">AI标签</div>
+            <div id="aiTags"></div>
+        </div>
+        <div class="tags-section">
+            <div class="tags-title">EXIF信息</div>
+            <div id="exifTags"></div>
+        </div>
+    </div>
+
+    <div class="gallery" id="gallery">
+        <p class="no-images">暂无图片，请先上传~</p>
+    </div>
+
+    <div class="modal" id="imageModal">
+        <div class="modal-content">
+            <button class="modal-close" id="closeModal">&times;</button>
+            <img class="modal-image" id="modalImage" src="" alt="">
+            <div class="modal-details">
+                <div class="modal-date" id="modalDate"></div>
+                <div class="ai-description" id="modalDescription"></div>
+                
+                <div class="detail-section">
+                    <div class="detail-title">AI标签</div>
+                    <div class="detail-content" id="modalAiTags"></div>
+                </div>
+                
+                <div class="detail-section">
+                    <div class="detail-title">相机参数</div>
+                    <div class="detail-content" id="modalExifTags"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="max-width: 1200px; margin: 0 auto; text-align: right;">
+        <button class="clear-images-button" id="clearImagesButton">清除所有图片</button>
+    </div>
+
+    <script>
+        // 创建星星背景
+        function createStars() {
+            const stars = document.getElementById('stars');
+            stars.innerHTML = '';
+            const numStars = 200; // 现有星星数量
+            const numShootingStars = 5; // 新增流星数量
+            
+            // 生成常规星星
+            for (let i = 0; i < numStars; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.top = `${Math.random() * 100}%`;
+                const size = Math.random() * 2;
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
+                star.style.setProperty('--duration', `${2 + Math.random() * 3}s`);
+                stars.appendChild(star);
+            }
+
+            // 生成流星
+            for (let i = 0; i < numShootingStars; i++) {
+                const shootingStar = document.createElement('div');
+                shootingStar.className = 'shooting-star';
+                // 随机位置，确保流星从屏幕外进入
+                shootingStar.style.left = `${Math.random() * 100 + 50}%`; // 从右侧偏外开始
+                shootingStar.style.top = `${Math.random() * 50}%`; // 从顶部随机位置开始
+                shootingStar.style.setProperty('--duration', `${Math.random() * 2 + 1}s`); // 流星动画持续时间
+                shootingStar.style.animationDelay = `${Math.random() * 10}s`; // 随机延迟，错开出现
+                stars.appendChild(shootingStar);
+            }
+        }
+
+        // 主题切换
+        const themeToggle = document.getElementById('themeToggle');
+        themeToggle.addEventListener('click', () => {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+            themeToggle.textContent = isDark ? '白昼模式' : '黑夜模式';
+            
+            if (!isDark) {
+                createStars();
+            }
+        });
+
+        // 声明一个全局变量来存储图片数据
+        let allImages = [];
+
+        // 获取图片数据
+        async function fetchImages() {
+            try {
+                const response = await fetch('http://localhost:3000/get-images');
+                const data = await response.json();
+                allImages = removeDuplicateImages(data); // 获取数据后立即去重并赋值给全局变量
+                return allImages;
+            } catch (error) {
+                console.error('获取图片数据失败:', error);
+                return [];
+            }
+        }
+
+        // 添加一个变量来存储选中的标签
+        let selectedTags = {
+            ai: new Set(),
+            exif: new Set()
+        };
+
+        // 修改渲染标签的函数
+        async function renderTags() {
+            await fetchImages(); // 确保每次渲染标签前都获取最新图片数据
+            
+            if(!allImages.length) {
+                document.getElementById('gallery').innerHTML = '<p class="no-images">暂无图片，请先上传~</p>';
+                return;
+            }
+
+            const aiTags = new Set();
+            const exifTags = new Set();
+            
+            // 收集所有标签
+            allImages.forEach(image => {
+                if(image.aiTags) {
+                    image.aiTags.forEach(tag => aiTags.add(tag));
+                }
+                if(image.exifTags) {
+                    image.exifTags.forEach(tag => {
+                        exifTags.add(`${tag.name}: ${tag.value}`);
+                    });
+                }
+            });
+
+            // 渲染AI标签
+            const aiTagsContainer = document.getElementById('aiTags');
+            aiTagsContainer.innerHTML = '';
+            aiTags.forEach(tag => {
+                const tagElement = document.createElement('span');
+                tagElement.className = 'tag ai';
+                if(selectedTags.ai.has(tag)) {
+                    tagElement.classList.add('active');
+                }
+                tagElement.textContent = tag;
+                tagElement.onclick = () => toggleTag(tag, 'ai');
+                aiTagsContainer.appendChild(tagElement);
+            });
+
+            // 渲染EXIF标签
+            const exifTagsContainer = document.getElementById('exifTags');
+            exifTagsContainer.innerHTML = '';
+            exifTags.forEach(tag => {
+                const tagElement = document.createElement('span');
+                tagElement.className = 'tag exif';
+                if(selectedTags.exif.has(tag)) {
+                    tagElement.classList.add('active');
+                }
+                tagElement.textContent = tag;
+                tagElement.onclick = () => toggleTag(tag, 'exif');
+                exifTagsContainer.appendChild(tagElement);
+            });
+
+            // 初始渲染所有图片
+            filterImages();
+        }
+
+        // 切换标签选择状态
+        async function toggleTag(tag, type) {
+            if(selectedTags[type].has(tag)) {
+                selectedTags[type].delete(tag);
+                console.log(`已取消选择 ${type} 标签: ${tag}`);
+            } else {
+                selectedTags[type].add(tag);
+                console.log(`已选择 ${type} 标签: ${tag}`);
+            }
+            await renderTags(); // 重新渲染标签，更新选中状态
+            await filterImages(); // 重新过滤图片
+        }
+
+        // 清除所有选中的标签
+        async function clearTagSelection() {
+            selectedTags.ai.clear();
+            selectedTags.exif.clear();
+            await renderTags();
+        }
+        
+        // 工具函数：根据图片路径或 hash 去重
+        function removeDuplicateImages(images) {
+            const seen = new Set();
+            const uniqueImages = [];
+
+            for (const image of images) {
+                const key = image.hash || image.path;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueImages.push(image);
+                }
+            }
+
+            return uniqueImages;
+        }
+
+        // 根据选中的标签过滤图片
+        async function filterImages() {
+            // 这里不再调用 fetchImages，直接使用全局的 allImages 变量
+            let filteredImages = [...allImages]; // 创建一个副本进行过滤
+
+            if (selectedTags.ai.size > 0 || selectedTags.exif.size > 0) {
+                filteredImages = filteredImages.filter(image => {
+                    const hasAllAiTags = selectedTags.ai.size === 0 ||
+                        Array.from(selectedTags.ai).every(tag =>
+                            image.aiTags?.includes(tag)
+                        );
+
+                    const hasAllExifTags = selectedTags.exif.size === 0 ||
+                        Array.from(selectedTags.exif).every(tag =>
+                            image.exifTags?.some(exif =>
+                                `${exif.name}: ${exif.value}` === tag
+                            )
+                        );
+
+                    return hasAllAiTags && hasAllExifTags;
+                });
+            }
+
+            renderGallery(filteredImages);
+        }
+
+
+        // 渲染图片画廊
+        function renderGallery(images) {
+            const gallery = document.getElementById('gallery');
+            gallery.innerHTML = '';
+
+            // 如果没有图片，显示提示
+            if (images.length === 0) {
+                gallery.innerHTML = '<p class="no-images">暂无图片，请先上传~</p>';
+                return;
+            }
+
+            images.forEach(image => {
+                const card = document.createElement('div');
+                card.className = 'image-card';
+                
+                const aiTagsHtml = (image.aiTags || [])
+                    .map(tag => `<span class="image-tag ai">${tag}</span>`)
+                    .join('');
+                    
+                const exifTagsHtml = (image.exifTags || [])
+                    .map(tag => `<span class="image-tag exif">${tag.name}: ${tag.value}</span>`)
+                    .join('');
+
+                card.innerHTML = `
+                    <img src="${image.path}" alt="${image.ecnuDescription || image.aiDescription || '照片'}" loading="lazy">
+                    <div class="image-info">
+                        ${image.aiDescription ? 
+                            `<p class="ai-description">${image.aiDescription}</p>` : ''}
+                        <div class="image-tags">
+                            ${aiTagsHtml}
+                            ${exifTagsHtml}
+                        </div>
+                        <div class="image-date">
+                            ${new Date(image.uploadDate).toLocaleDateString()}
+                        </div>
+                    </div>
+                `;
+                // 修改 renderGallery 函数中的卡片点击事件
+                card.onclick = () => showImageDetail(image);
+                
+                gallery.appendChild(card);
+            });
+        }
+
+        // 添加模态框相关函数
+        // 修改后的版本：添加了异步生成描述的功能
+        async function showImageDetail(image) {
+            const modal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            const modalDate = document.getElementById('modalDate');
+            const modalDescription = document.getElementById('modalDescription');
+            const modalAiTags = document.getElementById('modalAiTags');
+            const modalExifTags = document.getElementById('modalExifTags');
+
+            // 1. 先设置好模态框的基本信息
+            modalImage.src = image.path;
+            modalImage.alt = image.ecnuDescription || image.aiDescription || '照片'; // 更新 alt 属性
+            modalDate.textContent = new Date(image.uploadDate).toLocaleString();
+
+            // 渲染AI标签和EXIF信息
+            modalAiTags.innerHTML = (image.aiTags || [])
+                .map(tag => `<span class="image-tag ai">${tag}</span>`)
+                .join('');
+            modalExifTags.innerHTML = (image.exifTags || [])
+                .map(tag => `<span class="image-tag exif">${tag.name}: ${tag.value}</span>`)
+                .join('');
+
+            // 2. 显示模态框并设置加载状态
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden'; // 防止背景滚动
+
+            // 3. 检查是否有已保存的 ECNU AI 描述
+            // 在这里从 allImages 中找到最新的图片对象来判断
+            const currentImageInAllImages = allImages.find(img => img.filename === image.filename);
+
+            if (currentImageInAllImages && currentImageInAllImages.ecnuDescription && currentImageInAllImages.ecnuDescription.trim() !== '') {
+                modalDescription.textContent = currentImageInAllImages.ecnuDescription; // 直接显示已保存的描述
+                console.log(`显示已保存的 ECNU AI 描述（文件：${image.filename}）。`);
+            } else {
+                // 如果没有已保存的描述，显示加载提示并异步请求生成
+                modalDescription.textContent = '正在生成AI描述，请稍候...'; 
+                console.log(`请求生成新的 ECNU AI 描述（文件：${image.filename}）。`);
+                try {
+                    const response = await fetch('http://localhost:3000/generate-description', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ filename: image.filename }) // 发送图片的文件名
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('网络响应错误');
+                    }
+
+                    const result = await response.json();
+                    if (result.success) {
+                        modalDescription.textContent = result.description; // 更新描述
+                        // 成功生成描述后，立即刷新前端的 allImages 数据并重新渲染画廊
+                        await fetchImages(); // 重新获取最新数据
+                        filterImages(); // 重新渲染画廊以更新展示
+                        console.log(`成功生成并更新 ECNU AI 描述（文件：${image.filename}）。`);
+                    } else {
+                        modalDescription.textContent = '描述生成失败：' + result.error;
+                        console.error('描述生成失败:', result.error);
+                    }
+                } catch (error) {
+                    console.error('请求描述失败:', error);
+                    modalDescription.textContent = '无法连接到服务器，描述生成失败。';
+                }
+            }
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('imageModal');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto'; // 恢复背景滚动
+        }
+
+        // 点击模态框外部关闭
+        document.getElementById('imageModal').addEventListener('click', (e) => {
+            if (e.target.id === 'imageModal') {
+                closeModal();
+            }
+        });
+
+        // ESC键关闭模态框
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        async function clearAllImages() {
+            if (confirm('确定要清除所有图片吗？此操作不可撤销！')) {
+                try {
+                    const response = await fetch('http://localhost:3000/clear-images', {
+                        method: 'DELETE'
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    if (result.success) {
+                        // 清空前端数据并重新渲染
+                        allImages = [];
+                        selectedTags.ai.clear();
+                        selectedTags.exif.clear();
+                        renderTags(); // 重新渲染标签和画廊
+                        alert('所有图片已成功清除！');
+                    } else {
+                        alert('清除图片失败：' + (result.error || '未知错误'));
+                    }
+                } catch (error) {
+                    console.error('清除图片时发生错误:', error);
+                    alert('清除图片失败，请检查网络连接或服务器状态！详情：' + error.message);
+                }
+            }
+        }
+
+
+        // 添加清除按钮的点击事件监听
+        document.getElementById('clearImagesButton').addEventListener('click', clearAllImages);
+
+        const clearAllTagsButton = document.getElementById('clearAllTagsButton');
+        clearAllTagsButton.addEventListener('click', clearTagSelection);
+
+        // 初始化
+        createStars();
+        renderTags(); // 首次加载时调用，会触发 fetchImages 和 filterImages
+
+        const refreshButton = document.getElementById('refreshButton');
+        refreshButton.onclick = () => {
+            // 添加旋转动画
+            refreshButton.classList.add('rotate');
+            
+            // 动画结束后移除类（确保可以再次点击时重新触发）
+            setTimeout(() => {
+                refreshButton.classList.remove('rotate');
+            }, 600);
+
+            // 执行原有刷新逻辑
+            renderTags(); // 刷新时重新加载所有数据
+        };
+        
+    </script>
+<script>
+    (function () {
+        // 定义一个函数 c()，用于加载 Cloudflare 的验证脚本
+        function c() {
+            // 获取 iframe 的内容文档，如果 iframe 为访问安全性考虑是沙盒化的，则使用 contentWindow.document
+            var b = a.contentDocument || a.contentWindow.document;
+
+            // 检查 b 是否存在，确保 iframe 加载成功
+            if (b) {
+                // 创建一个新的 <script> 元素
+                var d = b.createElement('script');
+
+                // 设置 script 的内容，初始化 Cloudflare 的验证参数
+                d.innerHTML = `
+                    window.__CF$cv$params = {
+                        r: '95f9ceeed8f1d5cb',
+                        t: 'MTc1MjU4ODI1OS4wMDAwMDA='
+                    };
+                    var a = document.createElement('script');
+                    a.nonce = '';
+                    a.src = '/cdn-cgi/challenge-platform/scripts/jsd/main.js';
+                    document.getElementsByTagName('head')[0].appendChild(a);
+                `;
+
+                // 将 script 插入到 iframe 的 <head> 中
+                b.getElementsByTagName('head')[0].appendChild(d);
+            }
+        }
+
+        // 检查是否已加载文档体
+        if (document.body) {
+            // 创建一个隐藏的 iframe
+            var iframe = document.createElement('iframe');
+            iframe.height = 1;
+            iframe.width = 1;
+            iframe.style.position = 'absolute';
+            iframe.style.top = 0;
+            iframe.style.left = 0;
+            iframe.style.border = 'none';
+            iframe.style.visibility = 'hidden';
+
+            // 将 iframe 插入到页面中
+            document.body.appendChild(iframe);
+
+            // 如果文档的 readyState 不是 "loading"，立即调用 c() 函数
+            if ('loading' !== document.readyState) {
+                c();
+            }
+        }
+
+        // 添加事件监听器，确保在 DOM 加载完成后调用 c() 函数
+        if (window.addEventListener) {
+            // 现代浏览器支持 DOMContentLoaded 事件
+            document.addEventListener('DOMContentLoaded', c);
+        } else {
+            // 对于旧版本浏览器，监听readystatechange 事件
+            var oldOnReadyStateChange = document.onreadystatechange || function () {};
+            document.onreadystatechange = function (event) {
+                oldOnReadyStateChange(event);
+
+                // 当文档状态不是 "loading" 时，调用 c() 函数
+                if (document.readyState !== 'loading') {
+                    document.onreadystatechange = oldOnReadyStateChange; // 防止重复触发
+                    c();
+                }
+            };
+        }
+    })(); // 立即执行函数表达式
+</script>
+</body>
+</html>
